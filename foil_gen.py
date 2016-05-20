@@ -1,5 +1,7 @@
 from Tkinter import *
+import ttk
 from math import *
+import MC_defaults as MC
 
 
 
@@ -105,8 +107,39 @@ class Application(Frame):
         self.max_chine_length_input.grid(row=row_num, column=1)
 
         row_num += 1
-        self.button_drawfoil = Button(self.SubFrame,text="Generate foil",command=self.drawFoilChined)
-        self.button_drawfoil.grid(row=row_num, column=0, columnspan=2)
+        self.button_drawfoil = Button(self.SubFrame,text="Generate foil",command=self.drawFoilChined, width=30, bd=30)
+        self.button_drawfoil.grid(row=row_num, column=0, columnspan=2, pady=5)
+
+        row_num += 1
+        ttk.Separator(self.SubFrame,orient=HORIZONTAL).grid(row=row_num, column=0, columnspan=2, sticky="ew", pady=5)
+
+        row_num += 1
+        self.stock_width_label = Label(self.SubFrame, text='Stock width')
+        self.stock_width_label.grid(row=row_num, column=0)
+        self.stock_width_var = DoubleVar()
+        self.stock_width_input = Entry(self.SubFrame, textvariable=self.stock_width_var ,width=15)
+        self.stock_width_input.grid(row=row_num, column=1)
+
+        row_num += 1
+        self.stock_thickness_label = Label(self.SubFrame, text='Stock thickness')
+        self.stock_thickness_label.grid(row=row_num, column=0)
+        self.stock_thickness_var = DoubleVar()
+        self.stock_thickness_input = Entry(self.SubFrame, textvariable=self.stock_thickness_var ,width=15)
+        self.stock_thickness_input.grid(row=row_num, column=1)
+
+        row_num += 1
+        self.bit_diameter_label = Label(self.SubFrame, text='Cutter diameter')
+        self.bit_diameter_label.grid(row=row_num, column=0)
+        self.bit_diameter_var = DoubleVar()
+        self.bit_diameter_input = Spinbox(self.SubFrame, values=MC.bits, textvariable=self.bit_diameter_var, width=13)
+        self.bit_diameter_input.grid(row=row_num, column=1)
+
+        row_num += 1
+        self.button_roughcutcode = Button(self.SubFrame,text="Generate rough cut code",command=self.drawRoughCut, width=30)
+        self.button_roughcutcode.grid(row=row_num, column=0, columnspan=2, pady=5)
+
+        row_num += 1
+        ttk.Separator(self.SubFrame,orient=HORIZONTAL).grid(row=row_num, column=0, columnspan=2, sticky="ew", pady=5)
 
 
     def drawFoilChined(self):
@@ -125,8 +158,6 @@ class Application(Frame):
         foil_split = self.regime_split_var.get()
         foil_facet_tol = self.facet_tolerance_var.get()
         max_chine_length = self.max_chine_length_var.get() / foil_W
-        bit_diam = 0.5 / foil_W
-        bit_height = 0.75 / foil_W
 
         self.canvas.create_line(self.options["margin"], self.scal_Y(0), self.options["canW"], self.scal_Y(0), fill="green", tag="profile", dash=(5,10,40,10))
 
@@ -136,13 +167,13 @@ class Application(Frame):
         y_prev = 0
         x_step = 0.05
 
+        self.point_set = [(x_prev, y_prev, prev_slope)]
+
         num_chines = 0
 
         if foil_W > 0 and foil_T > 0:
             t = foil_T / foil_W   # giving the NACA 00## number
-            # for i in xrange(1, foil_points):
-            #     x = i / (foil_points - 1.0)
-            #     y = 5 * t * ((0.2969 * sqrt(x)) - (0.1260 * x) - (0.3516 * x**2) + (0.2843 * x**3) - (0.1015 * x**4))
+
             while (x_prev < 1.0):
                 assert x_step <= 0.3
                 x = x_prev + x_step
@@ -160,19 +191,12 @@ class Application(Frame):
                     # tick marks
                     self.canvas.create_line(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x), self.neg_scal_Y(y) + 10, fill="magenta", tag="profile")
 
-                    # tool profile
-                    if test_slope > 0:
-                        self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x - bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
-                    elif test_slope * prev_slope < 0:
-                        self.canvas.create_rectangle(self.scal_X(x_prev), self.neg_scal_Y(y_prev), self.scal_X(x_prev + bit_diam), self.neg_scal_Y(y_prev + bit_height), tag="tool_cut")
-                        self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
-                    else:
-                        self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
-                        pass
+                    self.point_set.append((x, y, test_slope))
                     x_prev = x
                     y_prev = y
                     prev_slope = test_slope
                     x_step = 0.05
+
                 else:
                     if prev_slope - test_slope - foil_facet_tol > 0:
                         x_step /= 2.0
@@ -180,7 +204,7 @@ class Application(Frame):
                         x_step *= 1.5
                         if x_step > max_chine_length:
                             x_step = max_chine_length
-            self.canvas.itemconfig("tool_cut",  fill="#aa5555", outline="#883333")
+
             print num_chines
 
 
@@ -191,48 +215,40 @@ class Application(Frame):
         self.canvas.create_line(self.scal_X(foil_split), self.options["canH"] / 4, self.scal_X(foil_split), self.options["canH"] / 4 * 3 , tag="ref_line")
         self.canvas.itemconfig("ref_line", fill="cyan", dash=(30,8))
 
-    def drawFoil(self):
-        self.canvas.delete("profile")
-        self.canvas.delete("ref_line")
-        self.gridAdjust()
+    def drawRoughCut(self):
+        self.canvas.delete("tool_cut")
 
-        # variables:
-        #    - width
-        #    - max thickness
-        #    - laminate thickness (per side)
-        #    - regime split point
-        #    - number of points to break up the curve in facets
+        self.stock_width = self.stock_width_var.get()
+        self.stock_thickness = self.stock_thickness_var.get()
+        assert self.stock_width != 0 and self.stock_thickness != 0, "rough stock is not sufficiently defined"
+        assert len(self.point_set) > 1, "you must define a foil first"
+
         foil_W = self.section_width_var.get()
         foil_T = self.section_thickness_var.get()
-        lam_T = self.laminate_thickness_var.get()
-        foil_split = self.regime_split_var.get()
-        foil_points = self.num_points_var.get()
-        if foil_points%2 == 0:
-        	foil_points += 1
+        bit_diam = self.bit_diameter_var.get() / 25.4 / foil_W
+        bit_height = 0.75 / foil_W
 
-        self.canvas.create_line(self.options["margin"], self.scal_Y(0), self.options["canW"], self.scal_Y(0), fill="green", tag="profile", dash=(5,10,40,10))
-
-        # note that x_prev is in domain [0,1.0]
         x_prev = 0
         y_prev = 0
+        prev_slope = 1
 
-        if foil_W > 0 and foil_T > 0:
-            t = foil_T / foil_W   # giving the NACA 00## number
-            for i in xrange(1, foil_points):
-                x = i / (foil_points - 1.0)
-                y = 5 * t * ((0.2969 * sqrt(x)) - (0.1260 * x) - (0.3516 * x**2) + (0.2843 * x**3) - (0.1015 * x**4))
-                self.canvas.create_line(self.scal_X(x_prev), self.scal_Y(y_prev), self.scal_X(x), self.scal_Y(y), fill="yellow", tag="profile")
-                self.canvas.create_line(self.scal_X(x_prev), self.neg_scal_Y(y_prev), self.scal_X(x), self.neg_scal_Y(y), fill="yellow", tag="profile")
-                x_prev = x
-                y_prev = y
-                print x_prev
+        # tool profile
+        for i in xrange(0, len(self.point_set)):
+            x = self.point_set[i][0]
+            y = self.point_set[i][1]
+            test_slope = self.point_set[i][2]
 
-        # section of maximum thickness
-        self.canvas.create_line(self.scal_X(0.3), self.options["canH"] / 4, self.scal_X(0.3), self.options["canH"] / 4 * 3 , tag="ref_line")
+            if test_slope > 0:
+                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x - bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
+            elif test_slope * prev_slope < 0:
+                self.canvas.create_rectangle(self.scal_X(x_prev), self.neg_scal_Y(y_prev), self.scal_X(x_prev + bit_diam), self.neg_scal_Y(y_prev + bit_height), tag="tool_cut")
+                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
+            else:
+                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
+            x_prev = x
+            y_prev = y
 
-        # regime split section
-        self.canvas.create_line(self.scal_X(foil_split), self.options["canH"] / 4, self.scal_X(foil_split), self.options["canH"] / 4 * 3 , tag="ref_line")
-        self.canvas.itemconfig("ref_line", fill="cyan", dash=(30,10))
+        self.canvas.itemconfig("tool_cut",  fill="#aa5555", outline="#883333")
 
 
     def gridAdjust(self):

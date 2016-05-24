@@ -86,13 +86,6 @@ class Application(Frame):
         self.regime_split_input.grid(row=row_num, column=1)
 
         row_num += 1
-        self.num_points_label = Label(self.SubFrame, text='Number of profile points')
-        self.num_points_label.grid(row=row_num, column=0)
-        self.num_points_var = IntVar()
-        self.num_points_input = Scale(self.SubFrame, variable=self.num_points_var, from_=31, to=1001, orient=HORIZONTAL,  length=150, sliderlength=20)
-        self.num_points_input.grid(row=row_num, column=1)
-
-        row_num += 1
         self.facet_tolerance_label = Label(self.SubFrame, text='Facet tolerance - radians')
         self.facet_tolerance_label.grid(row=row_num, column=0)
         self.facet_tolerance_var = DoubleVar()
@@ -128,11 +121,18 @@ class Application(Frame):
         self.stock_thickness_input.grid(row=row_num, column=1)
 
         row_num += 1
-        self.bit_diameter_label = Label(self.SubFrame, text='Cutter diameter')
+        self.bit_diameter_label = Label(self.SubFrame, text='Cutter diameter - mm')
         self.bit_diameter_label.grid(row=row_num, column=0)
         self.bit_diameter_var = DoubleVar()
         self.bit_diameter_input = Spinbox(self.SubFrame, values=MC.bits, textvariable=self.bit_diameter_var, width=13)
         self.bit_diameter_input.grid(row=row_num, column=1)
+
+        row_num += 1
+        self.max_cut_area_label = Label(self.SubFrame, text='Cut area - mm^2')
+        self.max_cut_area_label.grid(row=row_num, column=0)
+        self.max_cut_area_var = DoubleVar()
+        self.max_cut_area_input = Scale(self.SubFrame, variable=self.max_cut_area_var, from_=1.0, to=15.0, resolution=0.5, orient=HORIZONTAL,  length=150, sliderlength=20)
+        self.max_cut_area_input.grid(row=row_num, column=1)
 
         row_num += 1
         self.button_roughcutcode = Button(self.SubFrame,text="Generate rough cut code",command=self.drawRoughCut, width=30)
@@ -215,8 +215,10 @@ class Application(Frame):
         self.canvas.create_line(self.scal_X(foil_split), self.options["canH"] / 4, self.scal_X(foil_split), self.options["canH"] / 4 * 3 , tag="ref_line")
         self.canvas.itemconfig("ref_line", fill="cyan", dash=(30,8))
 
+
     def drawRoughCut(self):
         self.canvas.delete("tool_cut")
+        self.canvas.delete("stock")
 
         self.stock_width = self.stock_width_var.get()
         self.stock_thickness = self.stock_thickness_var.get()
@@ -224,13 +226,19 @@ class Application(Frame):
         assert len(self.point_set) > 1, "you must define a foil first"
 
         foil_W = self.section_width_var.get()
-        foil_T = self.section_thickness_var.get()
+        foil_T = self.section_thickness_var.get() / foil_W
         bit_diam = self.bit_diameter_var.get() / 25.4 / foil_W
         bit_height = 0.75 / foil_W
+
+        over_W = (self.stock_width - foil_W) / 2.0 / foil_W
+        over_T = (self.stock_thickness ) / 2.0 / foil_W
 
         x_prev = 0
         y_prev = 0
         prev_slope = 1
+
+        # stock
+        self.canvas.create_rectangle(self.scal_X( - over_W), self.neg_scal_Y(over_T), self.scal_X( 1 + over_W), self.scal_Y(over_T),  fill="", outline="white", tag="stock")
 
         # tool profile
         for i in xrange(0, len(self.point_set)):
@@ -239,12 +247,12 @@ class Application(Frame):
             test_slope = self.point_set[i][2]
 
             if test_slope > 0:
-                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x - bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
+                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x - bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
             elif test_slope * prev_slope < 0:
-                self.canvas.create_rectangle(self.scal_X(x_prev), self.neg_scal_Y(y_prev), self.scal_X(x_prev + bit_diam), self.neg_scal_Y(y_prev + bit_height), tag="tool_cut")
-                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
+                self.canvas.create_rectangle(self.scal_X(x_prev), self.neg_scal_Y(y_prev), self.scal_X(x_prev + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
             else:
-                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(y + bit_height), tag="tool_cut")
+                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
             x_prev = x
             y_prev = y
 
@@ -263,11 +271,14 @@ class Application(Frame):
     def scal_X(self, num):
         return (num * self.scale) + self.translate_X
 
+
     def scal_Y(self, num):
         return (num * self.scale) + self.translate_Y
 
+
     def neg_scal_Y(self, num):
         return - (num * self.scale) + self.translate_Y
+
 
 app = Application()
 app.master.title("multi tinker")

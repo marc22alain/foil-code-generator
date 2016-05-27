@@ -233,7 +233,7 @@ class Application(Frame):
         over_W = (self.stock_width - foil_W) / 2.0 / foil_W
         over_T = (self.stock_thickness ) / 2.0 / foil_W
 
-        x_prev = 0
+        x_prev = - over_W
         y_prev = 0
         prev_slope = 1
 
@@ -247,16 +247,42 @@ class Application(Frame):
             test_slope = self.point_set[i][2]
 
             if test_slope > 0:
-                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x - bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                # self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x - bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                self._drawRoughCut(x, y, x - bit_diam, min(over_T, y + bit_height), x_prev)
+                # pass
             elif test_slope * prev_slope < 0:
-                self.canvas.create_rectangle(self.scal_X(x_prev), self.neg_scal_Y(y_prev), self.scal_X(x_prev + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
-                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                # self.canvas.create_rectangle(self.scal_X(x_prev), self.neg_scal_Y(y_prev), self.scal_X(x_prev + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                self._drawRoughCut(x, y, x - bit_diam, min(over_T, y + bit_height), x_prev)
+                # self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                self._drawRoughCut(x + bit_diam, y, x, min(over_T, y + bit_height), x)
+                # pass
             else:
-                self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                # self.canvas.create_rectangle(self.scal_X(x), self.neg_scal_Y(y), self.scal_X(x + bit_diam), self.neg_scal_Y(min(over_T, y + bit_height)), tag="tool_cut")
+                self._drawRoughCut(x + bit_diam, y, x, min(over_T, y + bit_height), x_prev + bit_diam)
+                # pass
             x_prev = x
             y_prev = y
+            prev_slope = test_slope
 
         self.canvas.itemconfig("tool_cut",  fill="#aa5555", outline="#883333")
+
+
+    def _drawRoughCut(self, x_right, y_bottom, x_left, y_top, x_prev):
+        """
+        Input arguments define the actual area to be cut in this pass.
+        """
+        max_cut_area = self.max_cut_area_var.get() / 25.4**2 / self.section_width_var.get()**2
+        total_cut_area = (y_top - y_bottom) * (x_right - x_prev)
+        assert total_cut_area > 0, "y_top %f, y_bottom %f, x_right %f, x_prev %f" % (y_top, y_bottom, x_right, x_prev)
+        y_left = y_top - y_bottom
+        y_incr = min(max_cut_area / total_cut_area, 1) * y_left
+        y_prev_dest = y_top
+        while y_left > 0:
+            # print "router pass, leaving %f" % total_cut_area
+            y_dest = max(y_bottom, y_prev_dest - y_incr)
+            self.canvas.create_rectangle(self.scal_X(x_right), self.neg_scal_Y(y_dest), self.scal_X(x_left), self.neg_scal_Y(y_prev_dest), tag="tool_cut")
+            y_prev_dest = y_dest
+            y_left -= y_incr
 
 
     def gridAdjust(self):
@@ -281,5 +307,5 @@ class Application(Frame):
 
 
 app = Application()
-app.master.title("multi tinker")
+app.master.title("Foil Generator")
 app.mainloop()

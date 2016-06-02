@@ -12,7 +12,7 @@ class Application(Frame):
         self.scale = 700
         self.translate_X = 55
         self.translate_Y = 255
-        self.options = {"grid_spacing": 50, "canW": 800, "canH": 500, "margin": 5}
+        self.options = {"grid_spacing": 50, "canW": 800, "canH": 600, "margin": 5}
         self.gcode_generator = GCodeGenerator()
         self.gcode_stage = ""
         Frame.__init__(self, master)
@@ -60,6 +60,9 @@ class Application(Frame):
 
     def drawButtons(self):
 
+        # ****************************************************************************** #
+        # ********************************** DRAW FOIL ********************************* #
+        # ****************************************************************************** #
         row_num = 0
         self.section_width_label = Label(self.SubFrame, text='Section width')
         self.section_width_label.grid(row=row_num, column=0)
@@ -109,6 +112,9 @@ class Application(Frame):
         row_num += 1
         ttk.Separator(self.SubFrame,orient=HORIZONTAL).grid(row=row_num, column=0, columnspan=2, sticky="ew", pady=5)
 
+        # ****************************************************************************** #
+        # ******************************* DRAW ROUGH CUTS ****************************** #
+        # ****************************************************************************** #
         row_num += 1
         self.stock_width_label = Label(self.SubFrame, text='Stock width')
         self.stock_width_label.grid(row=row_num, column=0)
@@ -144,6 +150,33 @@ class Application(Frame):
         row_num += 1
         ttk.Separator(self.SubFrame,orient=HORIZONTAL).grid(row=row_num, column=0, columnspan=2, sticky="ew", pady=5)
 
+        # ****************************************************************************** #
+        # ******************************** MAKE FINE CUTS ****************************** #
+        # ****************************************************************************** #
+        row_num += 1
+        self.ball_nose_diameter_label = Label(self.SubFrame, text='Ball nose diameter - mm')
+        self.ball_nose_diameter_label.grid(row=row_num, column=0)
+        self.ball_nose_diameter_var = DoubleVar()
+        self.ball_nose_diameter_input = Spinbox(self.SubFrame, values=MC.ball_noses, textvariable=self.ball_nose_diameter_var, width=13, command=self.updatePassSlider)
+        self.ball_nose_diameter_input.grid(row=row_num, column=1)
+
+        row_num += 1
+        self.pass_spacing_label = Label(self.SubFrame, text='Pass spacing - mm')
+        self.pass_spacing_label.grid(row=row_num, column=0)
+        self.pass_spacing_var = DoubleVar()
+        self.pass_spacing_input = Scale(self.SubFrame, variable=self.pass_spacing_var, from_=0.0, to=self.ball_nose_diameter_var.get(), resolution=0.5, orient=HORIZONTAL,  length=150, sliderlength=20)
+        self.pass_spacing_input.grid(row=row_num, column=1)
+
+        row_num += 1
+        self.button_finecutcode = Button(self.SubFrame,text="Generate fine cuts and code",command=self.genFineCut, width=30)
+        self.button_finecutcode.grid(row=row_num, column=0, columnspan=2, pady=5)
+
+        row_num += 1
+        ttk.Separator(self.SubFrame,orient=HORIZONTAL).grid(row=row_num, column=0, columnspan=2, sticky="ew", pady=5)
+
+        # ****************************************************************************** #
+        # ********************************** SAVE FILE ********************************* #
+        # ****************************************************************************** #
         row_num += 1
         self.file_name_label = Label(self.SubFrame, text='File name')
         self.file_name_label.grid(row=row_num, column=0)
@@ -157,6 +190,14 @@ class Application(Frame):
 
         row_num += 1
         ttk.Separator(self.SubFrame,orient=HORIZONTAL).grid(row=row_num, column=0, columnspan=2, sticky="ew", pady=5)
+
+
+    def updatePassSlider(self):
+        print "called updatePassSlider"
+        print self.ball_nose_diameter_var.get()
+        print self.pass_spacing_input.config({"to":self.ball_nose_diameter_var.get()})
+         #= self.ball_nose_diameter_var.get()
+
 
     def drawFoilChined(self):
         self.canvas.delete("profile")
@@ -319,6 +360,27 @@ class Application(Frame):
             self.canvas.create_rectangle(self.scal_X(x_right), self.neg_scal_Y(y_dest), self.scal_X(x_left), self.neg_scal_Y(y_prev_dest), tag="tool_cut")
             y_prev_dest = y_dest
             y_left -= y_incr
+
+
+    def genFineCut(self):
+        """
+        Input required:
+            - ball-nose bit selection (from defaults)
+            - pass-spacing
+        Output required:
+            - user feedback telling that operation was performed
+            - calculate peak between passes ?
+            - lay computed arcs over fine-drawn foil
+        """
+        foil_W = self.section_width_var.get()
+        saved_foil_facet_tol = self.facet_tolerance_var.get()
+        saved_max_chine_length = self.max_chine_length_var.get()
+        self.facet_tolerance_var.set(0.005)
+        self.max_chine_length_var.set(0.12)
+        self.drawFoilChined()
+
+        self.facet_tolerance_var.set(saved_foil_facet_tol)
+        self.max_chine_length_var.set(saved_max_chine_length)
 
 
     def saveGcode(self):

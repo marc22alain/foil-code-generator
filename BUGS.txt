@@ -1,0 +1,20 @@
+BUGS:
+- irregular chines
+- irregular angles
+- cuts at x_right when at the right end of the stock
+- scaling issues in the g-code !!!
+	- due to a __design flaw__
+
+DESIGN FLAWS:
+- inconsistent and confusing use of metric/imperial units
+- integration with other g-code generation
+- consideration of the rest of the stock and foil geometry
+
+MISSING FEATURES:
+- foil truncation
+- template cut
+- fine profile cut
+
+***separation of concerns
+	-pass out when to move to new x-coord and where
+	-pass out to what depths to move

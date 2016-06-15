@@ -1,10 +1,27 @@
 from Tkinter import *
 import ttk
 from math import *
-import MC_defaults as MC
 import simple_generators as SG
 import Glib as G
 
+import os
+import sys
+
+
+path = os.getcwd().split("/")
+# print path
+
+new_path = ""
+for i in xrange(1, len(path) - 1):
+    new_path += "/" + path[i]
+new_path += "/" + "G-code-repositories"
+# print new_path
+
+sys.path.append(new_path)
+
+
+
+import MC_defaults as MC
 
 
 class Application(Frame):
@@ -196,7 +213,6 @@ class Application(Frame):
         print "called updatePassSlider"
         print self.ball_nose_diameter_var.get()
         print self.pass_spacing_input.config({"to":self.ball_nose_diameter_var.get()})
-         #= self.ball_nose_diameter_var.get()
 
 
     def drawFoilChined(self):
@@ -300,7 +316,7 @@ class Application(Frame):
 
         x_prev = - over_W
         y_prev = 0
-        prev_slope = 1
+        prev_slope = 1  # don't remember ? why not pi / 2
 
         # stock
         self.canvas.create_rectangle(self.scal_X( - over_W), self.neg_scal_Y(over_T), self.scal_X( 1 + over_W), self.scal_Y(over_T),  fill="", outline="white", tag="stock")
@@ -375,12 +391,38 @@ class Application(Frame):
         foil_W = self.section_width_var.get()
         saved_foil_facet_tol = self.facet_tolerance_var.get()
         saved_max_chine_length = self.max_chine_length_var.get()
+        # note that 0.005 radians is 0.286 degrees
         self.facet_tolerance_var.set(0.005)
-        self.max_chine_length_var.set(0.12)
+        self.max_chine_length_var.set(0.1)
         self.drawFoilChined()
 
         self.facet_tolerance_var.set(saved_foil_facet_tol)
         self.max_chine_length_var.set(saved_max_chine_length)
+
+        # self.point_set is renewed !
+        """
+        Algorithm is:
+            - making two sets of instructions: one each way across the foil section
+            - get the ball-nose cutter to start at the leading edge, corner point tangent to centerline
+            - make a G2 in YZ (or XZ) plane to put a the bit tangent to the next line in the series
+            - make a G1 in YZ (or XZ) plane to put the the new tangent point at the end of the line
+            - repeat until reached the end of the foil
+            - make a G1 move in X (or Y) to ready for the pass back over the foil section 
+            - repeat the foil section machining in a backwards manner
+        """
+        # make first pass
+        # G0_XY to outside of stock edge
+        # G0_Z so that vertical tangent point of ball-nose is at the horizontal centerline of the stock
+        # G1_XY to put cutter at the start of the foil leading edge
+        # ... then enter the foor loop
+        # note that if the centerline start point is at (0, 0.5) and the ball-nose R = 0.25, then the machine is at (-0.25, 0.25)
+        for i in xrange(len(self.point_set)):
+            # REM: that point_set[0] is the origin with slope of pi / 2
+            # G2 in blah-blah plane, with the i-th point set coords as the center point
+            #   - how is the end-point defined ?
+            # an incremental G2 approach would be to define the center_point as (cos(prev_slope - (pi/2)), sin(prev_slope - (pi/2))) * bit_radius
+            #   - and end-point as center_point - (cos(new_slope - (pi/2)), sin(new_slope - (pi/2))) * bit_radius)
+            pass
 
 
     def saveGcode(self):

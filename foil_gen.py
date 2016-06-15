@@ -1,13 +1,12 @@
 from Tkinter import *
 import ttk
 from math import *
-import simple_generators as SG
-import Glib as G
 
 import os
 import sys
 
 
+# START for local module imports:
 path = os.getcwd().split("/")
 # print path
 
@@ -20,8 +19,10 @@ new_path += "/" + "G-code-repositories"
 sys.path.append(new_path)
 
 
-
+import Glib as G
 import MC_defaults as MC
+import simple_generators as SG
+# END for local module imports:
 
 
 class Application(Frame):

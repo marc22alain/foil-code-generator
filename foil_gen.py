@@ -18,6 +18,16 @@ new_path += "/" + "G-code-repositories"
 
 sys.path.append(new_path)
 
+"""
+FIXING unit confusion:
+
+Units are used where:
+    - user input (currently in inches)
+    - drawing to the canvas (currently in range 0-1 over the section width)
+    - MC_defaults (in metric, mm)
+    - driving G-code generation (currently fucked-up)
+
+"""
 
 import Glib as G
 import MC_defaults as MC
@@ -158,7 +168,7 @@ class Application(Frame):
         self.max_cut_area_label = Label(self.SubFrame, text='Cut area - mm^2')
         self.max_cut_area_label.grid(row=row_num, column=0)
         self.max_cut_area_var = DoubleVar()
-        self.max_cut_area_input = Scale(self.SubFrame, variable=self.max_cut_area_var, from_=1.0, to=15.0, resolution=0.5, orient=HORIZONTAL,  length=150, sliderlength=20)
+        self.max_cut_area_input = Scale(self.SubFrame, variable=self.max_cut_area_var, from_=1.0, to=60.0, resolution=0.5, orient=HORIZONTAL,  length=150, sliderlength=20)
         self.max_cut_area_input.grid(row=row_num, column=1)
 
         row_num += 1
@@ -217,6 +227,7 @@ class Application(Frame):
 
 
     def drawFoilChined(self):
+        """ AKA the 'Generate foil' button. """
         self.canvas.delete("profile")
         self.canvas.delete("ref_line")
         self.canvas.delete("tool_cut")
@@ -288,6 +299,8 @@ class Application(Frame):
         # regime split section
         self.canvas.create_line(self.scal_X(foil_split), self.options["canH"] / 4, self.scal_X(foil_split), self.options["canH"] / 4 * 3 , tag="ref_line")
         self.canvas.itemconfig("ref_line", fill="cyan", dash=(30,8))
+        # truncation width calculation
+        self.showFoilTruncation()
 
 
     def drawRoughCut(self):
@@ -317,7 +330,7 @@ class Application(Frame):
 
         x_prev = - over_W
         y_prev = 0
-        prev_slope = 1  # don't remember ? why not pi / 2
+        prev_slope = pi / 2  # don't remember ? why not pi / 2
 
         # stock
         self.canvas.create_rectangle(self.scal_X( - over_W), self.neg_scal_Y(over_T), self.scal_X( 1 + over_W), self.scal_Y(over_T),  fill="", outline="white", tag="stock")
@@ -364,8 +377,11 @@ class Application(Frame):
         self.gcode_generator.shiftX( (x_right + x_left) / 2.0 )
 
         max_cut_area = self.max_cut_area_var.get() / 25.4**2 / self.section_width_var.get()**2
-        total_cut_area = (y_top - y_bottom) * ( min( x_right, self.stock_width_var.get() / self.section_width_var.get() ) - x_prev)
-        assert total_cut_area > 0, "y_top %f, y_bottom %f, x_right %f, x_prev %f" % (y_top, y_bottom, x_right, x_prev)
+
+        # total_cut_area takes into account the overlap, but misses the increased width of cut when increasing the depth of cut
+        total_cut_area = (y_top - y_bottom) * ( x_right - x_prev)
+        assert total_cut_area > 0, "total_cut_area %f, y_top %f, y_bottom %f, x_right %f, x_prev %f" % \
+                                    (total_cut_area, y_top, y_bottom, x_right, x_prev)
         y_left = y_top - y_bottom
         y_incr = min(max_cut_area / total_cut_area, 1) * y_left
         y_prev_dest = y_top
@@ -465,6 +481,14 @@ class Application(Frame):
     def neg_scal_Y(self, num):
         return - (num * self.scale) + self.translate_Y
 
+    def showFoilTruncation(self):
+        foil_split = self.regime_split_var.get()
+        foil_W = self.section_width_var.get()
+        foil_T = self.section_thickness_var.get()
+        t = foil_T / foil_W   # giving the NACA 00## number
+        x = 1 * foil_split
+        y = 5 * t * ((0.2969 * sqrt(x)) - (0.1260 * x) - (0.3516 * x**2) + (0.2843 * x**3) - (0.1015 * x**4))
+        print "foil truncation width is %s" % (2 * y * foil_W)
 
 
 class GCodeGenerator(object):

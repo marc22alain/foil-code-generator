@@ -92,14 +92,14 @@ class Application(Frame):
         # ********************************** DRAW FOIL ********************************* #
         # ****************************************************************************** #
         row_num = 0
-        self.section_width_label = Label(self.SubFrame, text='Section width')
+        self.section_width_label = Label(self.SubFrame, text='Section width - mm')
         self.section_width_label.grid(row=row_num, column=0)
         self.section_width_var = DoubleVar()
         self.section_width_input = Entry(self.SubFrame, textvariable=self.section_width_var ,width=15)
         self.section_width_input.grid(row=row_num, column=1)
 
         row_num += 1
-        self.section_thickness_label = Label(self.SubFrame, text='Maximum thickness')
+        self.section_thickness_label = Label(self.SubFrame, text='Maximum thickness - mm')
         self.section_thickness_label.grid(row=row_num, column=0)
         self.section_thickness_var = DoubleVar()
         self.section_thickness_input = Entry(self.SubFrame, textvariable=self.section_thickness_var ,width=15)
@@ -127,10 +127,10 @@ class Application(Frame):
         self.facet_tolerance_input.grid(row=row_num, column=1)
 
         row_num += 1
-        self.max_chine_length_label = Label(self.SubFrame, text='Maximum chine length - inches')
+        self.max_chine_length_label = Label(self.SubFrame, text='Maximum chine length - mm')
         self.max_chine_length_label.grid(row=row_num, column=0)
         self.max_chine_length_var = DoubleVar()
-        self.max_chine_length_input = Scale(self.SubFrame, variable=self.max_chine_length_var, from_=.125, to=0.500, resolution=0.025, orient=HORIZONTAL,  length=150, sliderlength=20)
+        self.max_chine_length_input = Scale(self.SubFrame, variable=self.max_chine_length_var, from_=.1, to=20.0, resolution=0.1, orient=HORIZONTAL,  length=150, sliderlength=20)
         self.max_chine_length_input.grid(row=row_num, column=1)
 
         row_num += 1
@@ -302,6 +302,8 @@ class Application(Frame):
         # truncation width calculation
         self.showFoilTruncation()
 
+        return num_chines
+
 
     def drawRoughCut(self):
         """
@@ -310,6 +312,7 @@ class Application(Frame):
         """
         self.gcode_generator.wipeClean()
         self.gcode_generator.startProgram()
+        # note that no unit conversions are required here, as the input is in the user units
         self.gcode_generator.setStockThickness(self.stock_thickness_var.get())
 
         self.canvas.delete("tool_cut")
@@ -322,8 +325,11 @@ class Application(Frame):
 
         foil_W = self.section_width_var.get()
         foil_T = self.section_thickness_var.get() / foil_W
-        bit_diam = self.bit_diameter_var.get() / 25.4 / foil_W
-        bit_height = 0.75 / foil_W
+        # Converts metric to the plot's single unit unit
+        bit_diam = self.bit_diameter_var.get() / foil_W
+        # Another magic number, until MC_defaults contains all required info
+        # TODO: update MC_defaults for more bit information
+        bit_height = 20 / foil_W
 
         over_W = (self.stock_width - foil_W) / 2.0 / foil_W
         over_T = (self.stock_thickness ) / 2.0 / foil_W
@@ -373,10 +379,13 @@ class Application(Frame):
         Each pass of the while loop should trigger a new depth of cut, i.e. a new shift in Z, and a new pass across the stock.
         NOTE: an odd number of passes will leave the bit at the opposite end of the stock.
         """
-        # first make the gcode move to new pass X location... defined by the bit's center.
-        self.gcode_generator.shiftX( (x_right + x_left) / 2.0 )
+        # need this to convert units back to input metric
+        foil_W = self.section_width_var.get()
+        # first make the gcode move to new pass X location... defined by the bit's center
+        # ... and convert from single unit units back to metric mm
+        self.gcode_generator.shiftX( foil_W * (x_right + x_left) / 2.0 )
 
-        max_cut_area = self.max_cut_area_var.get() / 25.4**2 / self.section_width_var.get()**2
+        max_cut_area = self.max_cut_area_var.get() / self.section_width_var.get()**2
 
         # total_cut_area takes into account the overlap, but misses the increased width of cut when increasing the depth of cut
         total_cut_area = (y_top - y_bottom) * ( x_right - x_prev)
@@ -388,7 +397,8 @@ class Application(Frame):
         while y_left > 0:
             y_dest = max(y_bottom, y_prev_dest - y_incr)
             # now make the gcode for the pass across the stock
-            self.gcode_generator.shiftY( y_dest )
+            # ...and convert from the single unit units back to metric input mm 
+            self.gcode_generator.shiftY( y_dest * foil_W)
             # now draw this pass
             self.canvas.create_rectangle(self.scal_X(x_right), self.neg_scal_Y(y_dest), self.scal_X(x_left), self.neg_scal_Y(y_prev_dest), tag="tool_cut")
             y_prev_dest = y_dest
@@ -464,7 +474,8 @@ class Application(Frame):
     def gridAdjust(self):
     	grid_window = self.options["canW"] - 100    # magic number 100 is to get a 50 pixel margin
         foil_W = self.section_width_var.get()
-        new_grid_spacing = grid_window / foil_W
+        # the magic number '10' determines how many units (mm now) per grid line
+        new_grid_spacing = 10 * grid_window / foil_W
         if new_grid_spacing != self.options["grid_spacing"]:
         	self.options["grid_spacing"] = new_grid_spacing
         	self.drawCanvasGrid()
@@ -508,8 +519,7 @@ class GCodeGenerator(object):
         self.gcode += G.set_ABS_mode()
 
     def setStockThickness(self, stock_thickness):
-        # More on the unit inconsistencies: must translate plot's inches to machine's metric
-        self.above_stock = stock_thickness * 25.4
+        self.above_stock = stock_thickness
 
 
     def getGCode(self):
@@ -524,7 +534,7 @@ class GCodeGenerator(object):
         # move in machine Z to just above the stock
         self.gcode += G.G0_Z(self.above_stock)
         # move to new X (or Y depending on stock layout in the machine)
-        self.gcode += G.G0_Y(new_x * 25.4)
+        self.gcode += G.G0_Y(new_x)
 
 
     def shiftY(self, new_y):
@@ -533,7 +543,7 @@ class GCodeGenerator(object):
         new_x is an absolute coordinate.
         """
         # move to new machine Z with G1
-        self.gcode += G.G1_Z(new_y * 25.4)
+        self.gcode += G.G1_Z(new_y)
         # make a cutting pass across the stock, assuming that this is in the machine's X axis
         if self.router_at_stock_start == True:
             self.gcode += G.G1_X(self.stock_end)

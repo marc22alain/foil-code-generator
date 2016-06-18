@@ -67,8 +67,37 @@ class TestFoilGen(unittest.TestCase):
 		new_app.drawRoughCut()
 
 
+	def test_num_chines1(self):
+		new_app.section_width_var.set(8)
+		new_app.section_thickness_var.set(1)
+		new_app.regime_split_var.set(.95)
+		new_app.facet_tolerance_var.set(0.35)
+		new_app.max_chine_length_var.set(0.25)
+
+		num_chines = new_app.drawFoilChined()
+		self.assertEquals(num_chines, 34)
 
 
+	def test_num_chines2(self):
+		new_app.section_width_var.set(8)
+		new_app.section_thickness_var.set(1)
+		new_app.regime_split_var.set(.95)
+		new_app.facet_tolerance_var.set(0.05)
+		new_app.max_chine_length_var.set(0.15)
+
+		num_chines = new_app.drawFoilChined()
+		self.assertEquals(num_chines, 74)
+
+
+	def test_num_chines3(self):
+		new_app.section_width_var.set(8)
+		new_app.section_thickness_var.set(1)
+		new_app.regime_split_var.set(.95)
+		new_app.facet_tolerance_var.set(0.35)
+		new_app.max_chine_length_var.set(0.375)
+
+		num_chines = new_app.drawFoilChined()
+		self.assertEquals(num_chines, 24)
 
 if __name__ == "__main__":
     unittest.main()

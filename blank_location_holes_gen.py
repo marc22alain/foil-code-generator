@@ -40,7 +40,7 @@ blank_nominal = (900.0, 220.0)
 first_row_start = 50.0
 
 # space from first row y
-second_row_start = 800.0
+second_row_start = 0.0
 
 blank_thickness = 25.0
 
@@ -50,7 +50,7 @@ safe_Z = 80.0
 
 cut_per_pass = 3.0
 
-file_name = "byte_blank_holes.ngc"
+file_name = "test_blank_holes.ngc"
 
 # END of user selections
 
@@ -98,9 +98,10 @@ g_code += G.G0_X(first_row_start)
 
 g_code += machineRow(safe_Z, blank_nominal, blank_thickness, cut_per_pass, bit_diameter)
 
-g_code += G.G0_X(first_row_start + second_row_start)
+if second_row_start != 0:
+    g_code += G.G0_X(first_row_start + second_row_start)
 
-g_code += machineRow(safe_Z, blank_nominal, blank_thickness, cut_per_pass, bit_diameter)
+    g_code += machineRow(safe_Z, blank_nominal, blank_thickness, cut_per_pass, bit_diameter)
 
 g_code += G.G0_X(0)
 

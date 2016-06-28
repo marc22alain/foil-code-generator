@@ -50,6 +50,8 @@ safe_Z = 80.0
 
 cut_per_pass = 3.0
 
+file_name = "byte_blank_holes.ngc"
+
 # END of user selections
 
 # sanity checks
@@ -101,3 +103,6 @@ g_code += G.G0_X(0)
 g_code += SG.endProgram()
 
 print g_code
+
+with open(file_name, 'w') as myFile:
+    myFile.write(g_code)

@@ -64,7 +64,7 @@ assert second_row_start in MC.spoil_board_spacings, "row spacing is not availabl
 
 
 def machineRow(safe_Z, blank_nominal, blank_thickness, cut_per_pass, bit_diameter):
-    text = ""
+    text = G.set_ABS_mode()
     center_line = blank_nominal[1] / 2.0
     # magic number 100 is based on assumption that mounting holes are +/- 100mm from the centerline locating hole
     # mounting hole # 1
@@ -73,14 +73,18 @@ def machineRow(safe_Z, blank_nominal, blank_thickness, cut_per_pass, bit_diamete
               bit_diameter, 8.1)
 
     # centerline location hole
+    text += G.set_ABS_mode()
     text += G.G0_Y(center_line)
     text += SG.bore_circle_ID(safe_Z, blank_thickness, cut_per_pass, 0,
               bit_diameter, 12.7)
 
     # mounting hole # 2
+    text += G.set_ABS_mode()
     text += G.G0_Y(center_line + 100)
     text += SG.bore_circle_ID(safe_Z, blank_thickness, cut_per_pass, 0,
               bit_diameter, 8.1)
+
+    text += G.set_ABS_mode()
     return text
 
 

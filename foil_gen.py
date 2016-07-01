@@ -311,9 +311,8 @@ class Application(Frame):
         It must first wipe the slate clean before making new gcode.
         """
         self.gcode_generator.wipeClean()
-        self.gcode_generator.startProgram()
         # note that no unit conversions are required here, as the input is in the user units
-        self.gcode_generator.setStockThickness(self.stock_thickness_var.get())
+        self.gcode_generator.startProgram(self.section_width_var.get(), self.stock_width_var.get(), self.stock_thickness_var.get())
 
         self.canvas.delete("tool_cut")
         self.canvas.delete("stock")
@@ -329,17 +328,19 @@ class Application(Frame):
         bit_diam = self.bit_diameter_var.get() / foil_W
         # Another magic number, until MC_defaults contains all required info
         # TODO: update MC_defaults for more bit information
-        bit_height = 20 / foil_W
+        bit_height = 20.0 / foil_W
 
         over_W = (self.stock_width - foil_W) / 2.0 / foil_W
-        over_T = (self.stock_thickness ) / 2.0 / foil_W
+        # original definition, coincident centerline of foil with centerline of blank
+        # over_T = (self.stock_thickness ) / 2.0 / foil_W
+        over_T = (self.stock_thickness / foil_W) - (foil_T / 2.0)
 
         x_prev = - over_W
         y_prev = 0
-        prev_slope = pi / 2  # don't remember ? why not pi / 2
+        prev_slope = pi / 2.0  # don't remember ? why not pi / 2
 
         # stock
-        self.canvas.create_rectangle(self.scal_X( - over_W), self.neg_scal_Y(over_T), self.scal_X( 1 + over_W), self.scal_Y(over_T),  fill="", outline="white", tag="stock")
+        self.canvas.create_rectangle(self.scal_X( - over_W), self.neg_scal_Y(over_T), self.scal_X( 1 + over_W), self.scal_Y(foil_T / 2.0),  fill="", outline="white", tag="stock")
 
         # tool profile
         for i in xrange(0, len(self.point_set)):
@@ -460,15 +461,21 @@ class Application(Frame):
 
         if user_name == "":
             file_name = default_name + ".ngc"
+            file_name_mirror = default_name + "_mirror.ngc"
         else:
             file_name = user_name + ".ngc"
+            file_name_mirror = user_name + "_mirror.ngc"
 
-        print self.gcode_generator.getGCode()
+        gcode, gcode_mirror = self.gcode_generator.getGCode()
+        print gcode
         print
         print "This g-code saved in file with name:", file_name
 
         with open(file_name, 'w') as myFile:
-            myFile.write(self.gcode_generator.getGCode())
+            myFile.write(gcode)
+
+        with open(file_name_mirror, 'w') as myFile:
+            myFile.write(gcode_mirror)
 
 
     def gridAdjust(self):
@@ -503,57 +510,134 @@ class Application(Frame):
 
 
 class GCodeGenerator(object):
+    """
+    Coordinate mapping between wizard UI's plot and the CNC machine:
+    - X of plot is Y of machine
+    - Y of plot is Z of machine
+    - no representation of machine's X
+    """
     def __init__(self):
-        self.gcode = ""
-        self.router_at_stock_start = True
-        self.stock_end = 100
+        self.gcode = self.gcode_mirror = ""
+        # sentinel variable indicating which end of the foil the machine is currently at
+        self.router_at_foil_start = True
+        # magic numbers from the designer's CAD system
+        # foil_sart is a ref from the blank's 0,0
+        self.foil_start = 120.0
+        self.foil_length = 80.0
+        self.skew_slope = 0.3
+
+        # test piece:
+        self.foil_start, self.foil_length, self.skew_slope = (120.0, 80.0, 0.3)
+
+        # must save the state of where the machine is in true space
+        # start at machining blank's 0,0, which is -50mm from the first row of location holes
+        # self.current_x = 0.0
+        # self.current_y = 0.0
+        self.safe_Z = 80.0
 
 
     def wipeClean(self):
-        self.gcode = ""
-        self.router_at_stock_start = True
+        self.gcode = self.gcode_mirror = ""
+        self.router_at_foil_start = True
 
 
-    def startProgram(self):
+    def startProgram(self, section_width, stock_width, stock_thickness):
         self.gcode += SG.startProgram(MC.default_feed_rate)
-        self.gcode += G.set_ABS_mode()
+        self.gcode_mirror += SG.startProgram(MC.default_feed_rate)
 
-    def setStockThickness(self, stock_thickness):
-        self.above_stock = stock_thickness
+        self.gcode += G.set_ABS_mode()
+        self.gcode_mirror += G.set_ABS_mode()
+
+        self.section_width = section_width
+        self.stock_width = stock_width
+        self.foil_stock_offset = (self.stock_width - self.section_width) / 2.0
+        self.above_stock = stock_thickness + 1.0
+        # assumes only protrusions above the stock are the bolt heads at location rows
+        self.safe_Z = stock_thickness + 10.0
+
+        self.gcode += G.G0_Z(self.safe_Z)
+        self.gcode_mirror += G.G0_Z(self.safe_Z)
+
+        self.current_x = self.foil_start
+        self.current_y = self.foil_stock_offset
+
+        # sets the machine at the starting point of the foil's leading edge
+        self.gcode += G.G0_XY((self.current_x, self.current_y))
+        self.gcode_mirror += G.G0_XY((self.current_x, self.current_y))
+
 
 
     def getGCode(self):
-        return self.gcode
+        return self.gcode, self.gcode_mirror
 
 
     def shiftX(self, new_x):
         """
         X refers to the plot X axis. Current assumption is that this will be a G0 in machine's Y.
         new_x is an absolute coordinate.
+
+        This method is implements the skew.
         """
         # move in machine Z to just above the stock
         self.gcode += G.G0_Z(self.above_stock)
-        # move to new X (or Y depending on stock layout in the machine)
-        self.gcode += G.G0_Y(new_x)
+        self.gcode_mirror += G.G0_Z(self.above_stock)
+        # move to new X; this is in the machine's Y axis
+
+        # original
+        # self.gcode += G.G0_Y(new_x)
+
+        # new for skewed foils
+        if self.router_at_foil_start == True:
+            self.gcode += G.G0_XY( (self.foil_start + (new_x * self.skew_slope), new_x + self.foil_stock_offset) )
+            self.gcode_mirror += G.G0_XY( (self.foil_start + (new_x * self.skew_slope), self.stock_width - (new_x + self.foil_stock_offset) ) )
+        else:
+            self.gcode += G.G0_XY( (self.foil_start + (new_x * self.skew_slope) + self.foil_length, new_x + self.foil_stock_offset) )
+            self.gcode_mirror += G.G0_XY( (self.foil_start + (new_x * self.skew_slope) + self.foil_length, self.stock_width - (new_x + self.foil_stock_offset) ) )
 
 
     def shiftY(self, new_y):
         """
-        X refers to the plot X axis.
-        new_x is an absolute coordinate.
+        Y refers to the plot Y axis.
+        new_y is an absolute coordinate.
         """
         # move to new machine Z with G1
         self.gcode += G.G1_Z(new_y)
-        # make a cutting pass across the stock, assuming that this is in the machine's X axis
-        if self.router_at_stock_start == True:
-            self.gcode += G.G1_X(self.stock_end)
+        self.gcode_mirror += G.G1_Z(new_y)
+        # make a cutting pass across the stock; this is in the machine's X axis
+
+        # original
+        # if self.router_at_foil_start == True:
+        #     self.gcode += G.G1_X(self.foil_end)
+        # else:
+        #     self.gcode += G.G1_X(0)
+
+        # new
+        self.gcode += G.set_INCR_mode()
+        self.gcode_mirror += G.set_INCR_mode()
+
+        if self.router_at_foil_start == True:
+            self.gcode += G.G1_X(self.foil_length)
+            self.gcode_mirror += G.G1_X(self.foil_length)
+
         else:
-            self.gcode += G.G1_X(0)
-        # flip the stock end sentinel
-        self.router_at_stock_start = not self.router_at_stock_start
+            self.gcode += G.G1_X(- self.foil_length)
+            self.gcode_mirror += G.G1_X(- self.foil_length)
+
+        self.gcode += G.set_ABS_mode()
+        self.gcode_mirror += G.set_ABS_mode()
+        # flip the foil end sentinel
+        self.router_at_foil_start = not self.router_at_foil_start
+
 
     def endProgram(self):
+        self.gcode += G.G0_Z(self.safe_Z)
+        self.gcode_mirror += G.G0_Z(self.safe_Z)
+
+        self.gcode += G.G0_XY((0,0))
+        self.gcode_mirror += G.G0_XY((0,0))
+
         self.gcode += SG.endProgram()
+        self.gcode_mirror += SG.endProgram()
 
 
 

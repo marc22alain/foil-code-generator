@@ -372,6 +372,8 @@ class Application(Frame):
 
         self.gcode_stage = "rough"
 
+        print "Number of passes is %s" % self.gcode_generator.pass_count
+
 
     def _drawRoughCut(self, x_right, y_bottom, x_left, y_top, x_prev):
         """
@@ -521,24 +523,28 @@ class GCodeGenerator(object):
         # sentinel variable indicating which end of the foil the machine is currently at
         self.router_at_foil_start = True
         # magic numbers from the designer's CAD system
-        # foil_sart is a ref from the blank's 0,0
-        self.foil_start = 120.0
-        self.foil_length = 80.0
-        self.skew_slope = 0.3
+        # foil_start is a ref from the blank's 0,0
 
-        # test piece:
-        self.foil_start, self.foil_length, self.skew_slope = (120.0, 80.0, 0.3)
+        # test piece, section: 213 x 18.55, stock: 230 x 18.6:
+        # self.foil_start, self.foil_length, self.skew_slope = (120.0, 80.0, 0.3)
+        # self.centerline_Z = 18.6 / 2.0
+
+        # BYTE blanks, section: 213 x 19.4, stock: 217 x 19.4:
+        self.foil_start, self.foil_length, self.skew_slope = (260.0, 460.0, 0.364)
+        self.centerline_Z = 19.4 / 2.0
 
         # must save the state of where the machine is in true space
         # start at machining blank's 0,0, which is -50mm from the first row of location holes
         # self.current_x = 0.0
         # self.current_y = 0.0
         self.safe_Z = 80.0
+        self.pass_count = 0
 
 
     def wipeClean(self):
         self.gcode = self.gcode_mirror = ""
         self.router_at_foil_start = True
+        self.pass_count = 0
 
 
     def startProgram(self, section_width, stock_width, stock_thickness):
@@ -558,13 +564,9 @@ class GCodeGenerator(object):
         self.gcode += G.G0_Z(self.safe_Z)
         self.gcode_mirror += G.G0_Z(self.safe_Z)
 
-        self.current_x = self.foil_start
-        self.current_y = self.foil_stock_offset
-
         # sets the machine at the starting point of the foil's leading edge
-        self.gcode += G.G0_XY((self.current_x, self.current_y))
-        self.gcode_mirror += G.G0_XY((self.current_x, self.current_y))
-
+        self.gcode += G.G0_XY((self.foil_start, self.foil_stock_offset))
+        self.gcode_mirror += G.G0_XY((self.foil_start, self.stock_width - self.foil_stock_offset))
 
 
     def getGCode(self):
@@ -576,7 +578,7 @@ class GCodeGenerator(object):
         X refers to the plot X axis. Current assumption is that this will be a G0 in machine's Y.
         new_x is an absolute coordinate.
 
-        This method is implements the skew.
+        This method implements the skew.
         """
         # move in machine Z to just above the stock
         self.gcode += G.G0_Z(self.above_stock)
@@ -601,8 +603,8 @@ class GCodeGenerator(object):
         new_y is an absolute coordinate.
         """
         # move to new machine Z with G1
-        self.gcode += G.G1_Z(new_y)
-        self.gcode_mirror += G.G1_Z(new_y)
+        self.gcode += G.G1_Z(new_y + self.centerline_Z)
+        self.gcode_mirror += G.G1_Z(new_y + self.centerline_Z)
         # make a cutting pass across the stock; this is in the machine's X axis
 
         # original
@@ -627,6 +629,8 @@ class GCodeGenerator(object):
         self.gcode_mirror += G.set_ABS_mode()
         # flip the foil end sentinel
         self.router_at_foil_start = not self.router_at_foil_start
+        # count this pass
+        self.pass_count += 1
 
 
     def endProgram(self):

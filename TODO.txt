@@ -1,0 +1,32 @@
+BUGS:
+- irregular chines
+- irregular angles
+	.seems prevalent for the first chine ... check out what happens at radians tolerance = 1.000, no chine length improves the first chine
+	.fixing this would probably address the one above
+
+DESIGN FLAWS:
+- integration with other g-code generation
+- consideration of the rest of the stock and foil geometry
+	.for transitions especially
+- not properly cutting both sides of the board in one programming prep
+	.the mirrored (second?) cut uses the same stock thickness and not the thickness left after the first cut
+
+MISSING FEATURES:
+- foil truncation
+- template cut
+- fine profile cut
+
+EXTENSIONS:
+- other foil profiles
+	.such as NACA 63- series
+- transitions cutting
+- foil tapering in x and y dimensions
+
+SUITABILITY for SHARING:
+- requiring good documentation
+	.Github is one place
+	.marcotypes is another... or at least providing a link to Github
+
+
+TRY UMPLE:
+- at http://cruise.eecs.uottawa.ca/umpleonline/umple.php?model=160816755929

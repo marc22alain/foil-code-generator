@@ -19,8 +19,11 @@ MISSING FEATURES:
 EXTENSIONS:
 - other foil profiles
 	.such as NACA 63- series
-- transitions cutting
-- foil tapering in x and y dimensions
+- view and more for planning transitions
+	.transitions cutting
+- view and more for planning skew
+- view and more for planning taper in all dimensions
+	.foil tapering in x and y dimensions
 
 SUITABILITY for SHARING:
 - requiring good documentation
@@ -30,3 +33,6 @@ SUITABILITY for SHARING:
 
 TRY UMPLE:
 - at http://cruise.eecs.uottawa.ca/umpleonline/umple.php?model=160816755929
+
+MISCELLANEOUS notes:
+- max-chine length should be influenced by the bit... no point in making the chines longer than the bit radius

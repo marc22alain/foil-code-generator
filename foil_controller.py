@@ -1,11 +1,13 @@
 from foil_view import View
 from foil import Foil
+from foil_menubar import MenuBar
 
 
 class FoilController(object):
     def __init__(self):
         self.foil = Foil()
         self.view = View(self)
+        self.menu = MenuBar(self, self.view)
 
     def generateFoil(self):
         """ This is the recipient of the 'Generate foil' button event.
@@ -18,3 +20,9 @@ class FoilController(object):
         production of the g-code for the displayed program passes and save it
         to files. """
         print "Saving the g-code now..."
+
+    def chooseNACA_00(self):
+        pass
+
+    def chooseNACA_63(self):
+        pass

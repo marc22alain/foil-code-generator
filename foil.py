@@ -20,13 +20,14 @@ class Foil(object):
 		elif formula == "NACA-63":
 			self.formula == NACA_63()
 
-	def generatePointSet(self, width, thickness, rad_tolerance, max_chine, transition):
+	def generatePointSet(self, parameters):
 		""" Triggered by the 'Generate foil' button, this will calcuate the
 		full set of points on the foil profile according the parameters chosen
 		by the user. """
-		self.width = width
-		self.thickness = thickness
-		self.rad_tolerance = rad_tolerance
-		self.max_chine = max_chine
+		self.width = parameters["width"]
+		self.thickness = parameters["thickness"]
+		self.rad_tolerance = parameters["rad_tolerance"]
+		self.max_chine = parameters["max_chine"]
+		self.regime_split = parameters["regime_split"]
 		# TODO: do a whole lot of calculations !
 		return self.point_set

@@ -37,6 +37,23 @@ class View(Tk):
         self.notebook.add(self.stock_view, text='Stock definition')
         self.notebook.pack(expand=1, fill="both")
 
+    def getFoilParameters(self):
+        parameters = {"width": self.foil_view.section_width_var.get(),
+                      "thickness": self.foil_view.section_thickness_var.get(),
+                      "rad_tolerance": self.foil_view.radians_tolerance_var.get(),
+                      "max_chine": self.foil_view.max_chine_length_var.get(),
+                      "regime_split": self.foil_view.regime_split_var.get()}
+        return parameters
+
+    def drawFoil(self, point_set):
+        # TODO: figure out how to to decide between length-wise or cross-wise drawing
+        # self.foil_view.drawFoilChined(point_set)
+        self.foil_view.drawFoilPoints(point_set)
+
+
+    def getStockParameters(self):
+    	pass
+
 
 
 class TabView(Frame):
@@ -91,7 +108,7 @@ class TabView(Frame):
             self.canvas.create_line(margin, self.scal_Y(0) - (j * grid_spacing), width + margin,  self.scal_Y(0) - (j * grid_spacing), fill="#888", tag="grid")
 
 
-    def gridAdjust(self, reference):
+    def gridAdjust(self, reference=1):
         """ This is to adjust the canvas grid to suit the chosen foil parameters. """
         grid_window = self.options["canW"] - 100    # magic number 100 is to get a 50 pixel margin
         # the magic number '10' determines how many units (mm now) per grid line
@@ -155,11 +172,11 @@ class FoilView(TabView):
         self.regime_split_input.grid(row=row_num, column=1)
 
         row_num += 1
-        self.facet_tolerance_label = Label(self.InputFrame, text='Facet tolerance - radians')
-        self.facet_tolerance_label.grid(row=row_num, column=0)
-        self.facet_tolerance_var = DoubleVar()
-        self.facet_tolerance_input = Scale(self.InputFrame, variable=self.facet_tolerance_var, from_=.005, to=1.0, resolution=0.005, orient=HORIZONTAL,  length=150, sliderlength=20)
-        self.facet_tolerance_input.grid(row=row_num, column=1)
+        self.radians_tolerance_label = Label(self.InputFrame, text='Facet tolerance - radians')
+        self.radians_tolerance_label.grid(row=row_num, column=0)
+        self.radians_tolerance_var = DoubleVar()
+        self.radians_tolerance_input = Scale(self.InputFrame, variable=self.radians_tolerance_var, from_=.005, to=1.0, resolution=0.005, orient=HORIZONTAL,  length=150, sliderlength=20)
+        self.radians_tolerance_input.grid(row=row_num, column=1)
 
         row_num += 1
         self.max_chine_length_label = Label(self.InputFrame, text='Maximum chine length - mm')
@@ -223,15 +240,22 @@ class FoilView(TabView):
 
         # call self.gridAdjust(self.section_width_var.get())
 
-    def drawRoughCut(self):
+    def drawRoughCut(self, point_set):
         """ This method runs in response to the "Generate rough cuts and code" button. """
         pass
 
         # call self.gridAdjust(self.section_width_var.get())
 
-    def drawFoilPoints(self):
-    	""" This is the new way to draw the length-wise-cut foil. The full
-    	picture cannot be appreciated until drawRoughCut() is performed. """
+    def drawFoilPoints(self, point_set):
+        """ This is the new way to draw the length-wise-cut foil. The full
+        picture cannot be appreciated until drawRoughCut() is performed. """
+        self.canvas.delete("profile")
+        self.canvas.delete("ref_line")
+        self.canvas.delete("tool_cut")
+        self.gridAdjust()
+        self.canvas.create_line(self.options["margin"], self.scal_Y(0), self.options["canW"], self.scal_Y(0), fill="green", tag="profile", dash=(5,10,40,10))
+
+        # for (x,y) in point_set:
 
 
 class StockView(TabView):

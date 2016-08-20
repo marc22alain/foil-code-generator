@@ -14,6 +14,10 @@ class FoilController(object):
         Coordinates the generation of the foil profile, scales the point-set,
         and gets the view to draw it. """
         print "Generating the foil now..."
+        self.point_set = self.foil.generatePointSet(self.view.getFoilParameters())
+        self.view.drawFoil(self.point_set)
+
+
 
     def saveGcode(self):
         """ Triggered by the 'Save g-code' button event, it will coordinate
